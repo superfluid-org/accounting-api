@@ -2,45 +2,70 @@ import { getUnixTime, sub } from 'date-fns';
 import { getVirtualizedStreamPeriods } from '@/services/StreamPeriodsService';
 import { CurrencyCode } from '@/utils/CurrencyUtils';
 import { VirtualizationPeriod, VirtualizationUnitOfTimeMap } from '@/utils/DateUtils';
-import { NextApiRequest, NextApiResponse } from 'next';
+import { NextRequest, NextResponse } from 'next/server';
 import { AccountingQuery } from '@/utils/AccountQuery';
 import { z } from 'zod';
 
-export const handler = async (req: NextApiRequest, res: NextApiResponse) => {
+export async function GET(request: NextRequest) {
 	try {
-		const { chains, addresses, start, end, virtualization, currency, priceGranularity, counterparties } =
-			AccountingQuery.parse(req.query);
+		const { searchParams } = new URL(request.url);
 
+		// Convert URLSearchParams to a plain object suitable for Zod parsing
+		// This handles repeated query parameters by creating arrays for them.
+		const queryToParse: { [key: string]: string | string[] } = {};
+		searchParams.forEach((value, key) => {
+			const existing = queryToParse[key];
+			if (existing) {
+				if (Array.isArray(existing)) {
+					existing.push(value);
+				} else {
+					queryToParse[key] = [existing, value]; // Convert to array if it's the second occurrence
+				}
+			} else {
+				queryToParse[key] = value; // First occurrence
+			}
+		});
+
+		const { chains, addresses, start, end, virtualization, currency, priceGranularity, counterparties } =
+			AccountingQuery.parse(queryToParse);
 		// Hourly price granularity can not be used with data older than 90 days.
-		// This is currently a limitation by CoinGecko API we are using.
-		// More info here: https://www.coingecko.com/en/api/documentation
+		// Note: 'start' here is a string (or undefined, or string[]) from parsing.
+		// It's converted to Number for the check.
+		// You might need to adjust if 'start' could be an array based on your schema and usage.
 		if (
-			start &&
+			start && typeof start === 'string' && // Ensure start is a string before Number()
 			priceGranularity === VirtualizationPeriod.Hour &&
-			getUnixTime(sub(new Date(), { days: 89, hours: 23, minutes: 59 })) > start
+			getUnixTime(sub(new Date(), { days: 89, hours: 23, minutes: 59 })) > Number(start)
 		) {
-			res.status(400).send('Hourly price granularity can not be used with data older than 90 days.');
-			return;
+			return NextResponse.json(
+				{ message: 'Hourly price granularity can not be used with data older than 90 days.' },
+				{ status: 400 }
+			);
 		}
 
 		const virtualizedStreamPeriods = await getVirtualizedStreamPeriods(
-			addresses,
-			chains,
-			Number(start),
+			addresses, // Assuming these are correctly parsed as string[] by Zod if multiple
+			chains,    // Assuming these are correctly parsed as string[] by Zod if multiple
+			Number(start), // Ensure start and end are converted to numbers if they are defined and single
 			Number(end),
 			VirtualizationUnitOfTimeMap[virtualization],
-			counterparties,
+			counterparties, // Assuming these are correctly parsed as string[] by Zod if multiple
 			currency as CurrencyCode,
 			VirtualizationUnitOfTimeMap[priceGranularity],
 		);
 
-		res.setHeader('Access-Control-Allow-Origin', '*');
-		res.status(200).json(virtualizedStreamPeriods);
+		return NextResponse.json(virtualizedStreamPeriods, {
+			status: 200,
+			headers: {
+				'Access-Control-Allow-Origin': '*',
+			},
+		});
 	} catch (e: any) {
 		if (e instanceof z.ZodError) {
-			res.status(400).json({ message: 'Validation error', errors: e.errors });
+			return NextResponse.json({ message: 'Validation error', errors: e.errors }, { status: 400 });
 		} else {
-			res.status(500).send(e.message);
+			console.error('GET Error:', e); 
+			return NextResponse.json({ message: e.message || 'Internal Server Error' }, { status: 500 });
 		}
 	}
-};
+}
