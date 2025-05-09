@@ -11,7 +11,7 @@ More info about using the Accounting API can be found [here](https://superfluidh
 pnpm install
 ```
 
-2) Run netlify
+2) Run development mode
 ```
 pnpm dev
 ```
