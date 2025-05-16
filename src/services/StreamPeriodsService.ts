@@ -224,13 +224,16 @@ function getUniqueNetworkTokenAddresses({ streamPeriods, transfers }: { streamPe
 
 	return Object.values(
 		allTokens.reduce((tokens, token) => {
-			const {
+			let {
 				chainId,
 				id,
 				underlyingAddress,
 			} = token;
 
-			// TODO: If no underlyingAddress then it is native super token?
+			if (underlyingAddress === "0x0000000000000000000000000000000000000000") {
+				underlyingAddress = null!;
+			}
+
 			return {
 				...tokens,
 				[`${chainId}-${underlyingAddress}`]: { chainId, token: underlyingAddress || id },
