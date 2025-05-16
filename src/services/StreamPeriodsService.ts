@@ -126,6 +126,7 @@ function mapStreamPeriodResult(streamPeriod: StreamPeriodResult, virtualPeriods:
 		startedAtEvent: startedAtEvent.transactionHash,
 		stoppedAtEvent: stoppedAtEvent?.transactionHash,
 		virtualPeriods,
+		totalAmountStreamed: streamPeriod.totalAmountStreamed ?? "0"
 	};
 }
 
