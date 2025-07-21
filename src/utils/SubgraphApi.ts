@@ -46,21 +46,25 @@ export async function queryStreamPeriods(
 
 	const transferTokens = uniq(transfers.map(transfer => transfer.token));
 
-	const tokenQueryVariables = { tokens: transferTokens };
-	const { data: tokenData } = await client.query<
-		{ tokens: (Token & GraphqlType)[] }
-	>({
-		query: tokenQuery,
-		variables: tokenQueryVariables,
-	}).catch((e) => {
-		console.error(`Failed to fetch tokens ${network.name} subgraph`, tokenQueryVariables, e);
-		throw e;
-	});;
+	// If there are no transfers, skip token query to avoid subgraph panic with empty array
+	let allTransfersWithTokens: TransferEventResultWithToken[] = [];
+	if (transferTokens.length > 0) {
+		const tokenQueryVariables = { tokens: transferTokens };
+		const { data: tokenData } = await client.query<
+			{ tokens: (Token & GraphqlType)[] }
+		>({
+			query: tokenQuery,
+			variables: tokenQueryVariables,
+		}).catch((e) => {
+			console.error(`Failed to fetch tokens ${network.name} subgraph`, tokenQueryVariables, e);
+			throw e;
+		});
 
-	const allTransfersWithTokens = transfers.map(transfer => ({
-		...transfer,
-		token: tokenData.tokens.find((token) => token.id === transfer.token)!,
-	}));
+		allTransfersWithTokens = transfers.map(transfer => ({
+			...transfer,
+			token: tokenData.tokens.find((token) => token.id === transfer.token)!,
+		}));
+	}
 
 	return { streamPeriods, transfers: allTransfersWithTokens };
 }
