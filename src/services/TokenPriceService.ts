@@ -34,7 +34,8 @@ function matchCoingeckoTokens(networkTokens: NetworkToken[], coingeckoCoins: Coi
 	return networkTokens.reduce((matchedTokens, networkToken) => {
 		
 		// Check if token exists in hardcoded list
-		const superTokenCoingeckoId = SUPERTOKEN_ADDRESS_TO_COINGECKO_ID_MAP[networkToken.chainId][networkToken.token as Address];
+        const chainTokenMap = SUPERTOKEN_ADDRESS_TO_COINGECKO_ID_MAP[networkToken.chainId];
+        const superTokenCoingeckoId = chainTokenMap?.[networkToken.token.toLowerCase() as Address];
 		if (superTokenCoingeckoId) {
 			return [...matchedTokens, {
 				...networkToken,
@@ -44,9 +45,12 @@ function matchCoingeckoTokens(networkTokens: NetworkToken[], coingeckoCoins: Coi
 
 		if (networkToken.underlyingAddress) {
 			// Try to match by fetched platform address
-			const coingeckoCoin = coingeckoCoins.find(
-				(token) => token.platforms[networks[networkToken.chainId].coingeckoId] === networkToken.underlyingAddress,
-			);
+            const networkMeta = networks[networkToken.chainId];
+            const coingeckoCoin = networkMeta
+                ? coingeckoCoins.find(
+                    (token) => token.platforms[networkMeta.coingeckoId] === networkToken.underlyingAddress,
+                )
+                : undefined;
 	
 			// If found by fetched platform address, use it
 			if (coingeckoCoin) {
