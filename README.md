@@ -21,6 +21,10 @@ pnpm dev
 http://localhost:3000
 ```
 
+## Deployment
+
+The API is deployed on Vercel at `https://accounting.superfluid.dev`. The Superfluid Dashboard uses it for its accounting export (https://app.superfluid.org/accounting).
+
 ## API endpoints
 
 ### Virtualized stream periods
